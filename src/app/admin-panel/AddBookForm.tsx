@@ -24,6 +24,7 @@ export default function AddBookForm({ onSubmit, uploadingPDF, storageReady = tru
     category: 'programming',
     tags: [],
     pdf_url: '',
+    // Убрали cover_url из начального состояния
   });
   
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -73,7 +74,7 @@ export default function AddBookForm({ onSubmit, uploadingPDF, storageReady = tru
     setMessage(null);
 
     try {
-
+      // Создаем копию для отправки - БЕЗ cover_url
       const bookToSubmit: NewBook = {
         title: formData.title,
         author: formData.author,
