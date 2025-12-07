@@ -17,23 +17,33 @@ export default function BookCard({ book }: BookCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [favoriteId, setFavoriteId] = useState<string | null>(null);
 
+  // безопасные значения по умолчанию
+  const bookId = book.id ?? '';
+  const title = book.title ?? 'Без названия';
+  const author = book.author ?? 'Неизвестный автор';
+  const category = book.category ?? 'Не указано';
+  const year = book.year ?? 0;
+  const pages = book.pages ?? 0;
+  const description = book.description ?? '';
+  const tags = book.tags ?? [];
+
   // Проверяем, добавлена ли книга в избранное при загрузке
   const checkIfFavorite = useCallback(async () => {
-    if (!user || !book.id) return;
-    
+    if (!user || !bookId) return;
+
     try {
       const { data, error } = await supabase
         .from('favorites')
         .select('id')
         .eq('user_id', user.id)
-        .eq('book_id', book.id)
+        .eq('book_id', bookId)
         .maybeSingle();
-      
+
       if (error) {
         console.error('Ошибка проверки избранного:', error);
         return;
       }
-      
+
       if (data) {
         setIsFavorite(true);
         setFavoriteId(data.id);
@@ -41,76 +51,70 @@ export default function BookCard({ book }: BookCardProps) {
         setIsFavorite(false);
         setFavoriteId(null);
       }
-    } catch (error) {
-      console.error('Ошибка проверки избранного:', error);
+    } catch (err) {
+      console.error('Ошибка проверки избранного:', err);
     }
-  }, [user, book.id]);
+  }, [user, bookId]);
 
   useEffect(() => {
-    if (user && book.id) {
+    if (user && bookId) {
       checkIfFavorite();
     }
-  }, [user, book.id, checkIfFavorite]);
+  }, [user, bookId, checkIfFavorite]);
 
-  // Добавление/удаление из избранного
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     if (!user) {
       alert('Войдите в аккаунт, чтобы добавлять книги в избранное');
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       if (isFavorite && favoriteId) {
-        // Удаляем из избранного
         const { error } = await supabase
           .from('favorites')
           .delete()
           .eq('id', favoriteId);
-        
+
         if (error) throw error;
-        
+
         setIsFavorite(false);
         setFavoriteId(null);
-        console.log('Книга удалена из избранного');
       } else {
-        // Добавляем в избранное
         const { data, error } = await supabase
           .from('favorites')
           .insert({
             user_id: user.id,
-            book_id: book.id,
-            book_title: book.title,
-            book_author: book.author,
-            book_category: book.category || 'Не указано',
-            book_year: book.year,
-            book_pages: book.pages,
-            book_description: book.description,
-            book_tags: book.tags
+            book_id: bookId,
+            book_title: title,
+            book_author: author,
+            book_category: category,
+            book_year: year,
+            book_pages: pages,
+            book_description: description,
+            book_tags: tags,
           })
           .select()
           .single();
-        
+
         if (error) {
-          // Если книга уже в избранном
           if (error.code === '23505') {
-            await checkIfFavorite(); // Обновляем статус
+            await checkIfFavorite();
           } else {
             throw error;
           }
         } else if (data) {
           setIsFavorite(true);
           setFavoriteId(data.id);
-          console.log('Книга добавлена в избранное');
         }
       }
-    } catch (error) {
-      console.error('Ошибка избранного:', error);
-      const err = error as Error;
-      alert(err.message || 'Произошла ошибка');
+    } catch (err) {
+      console.error('Ошибка избранного:', err);
+      const errorObj = err as Error;
+      alert(errorObj.message || 'Произошла ошибка');
     } finally {
       setIsLoading(false);
     }
@@ -118,61 +122,53 @@ export default function BookCard({ book }: BookCardProps) {
 
   const handleInfoClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Здесь будет логика для модального окна с деталями
     console.log('Book info:', book);
   };
 
-  // Если у книги нет ID, не показываем кнопку избранного
-  const canAddToFavorites = user && book.id;
+  const canAddToFavorites = user && bookId;
 
   return (
     <div className={styles.bookCard}>
       <div className={styles.bookImage}>
         <i className="fas fa-code"></i>
-        {book.year >= 2024 && (
-          <span className={styles.bookBadge}>Новинка</span>
-        )}
+        {year >= 2024 && <span className={styles.bookBadge}>Новинка</span>}
       </div>
+
       <div className={styles.bookContent}>
-        <h3 className={styles.bookTitle}>{book.title}</h3>
-        <p className={styles.bookAuthor}>{book.author}</p>
+        <h3 className={styles.bookTitle}>{title}</h3>
+        <p className={styles.bookAuthor}>{author}</p>
         <p className={styles.bookYear}>
-          {book.year} • {book.pages} страниц
+          {year} • {pages} страниц
         </p>
-        
+
         <div className={styles.bookTags}>
-          {book.tags.slice(0, 3).map(tag => (
-            <span key={tag} className={styles.bookTag}>{tag}</span>
+          {tags.slice(0, 3).map((tag) => (
+            <span key={tag} className={styles.bookTag}>
+              {tag}
+            </span>
           ))}
         </div>
-        
+
         <p className={styles.bookDescription}>
-          {book.description.length > 120 
-            ? `${book.description.substring(0, 120)}...` 
-            : book.description}
+          {description.length > 120 ? `${description.substring(0, 120)}...` : description}
         </p>
-        
+
         <div className={styles.bookActions}>
-          {/* ИСПРАВЛЕНО: Link вместо button с onClick */}
-          <Link 
-            href={`/literature/${book.id}`}
+          <Link
+            href={`/literature/${bookId}`}
             className={styles.btnPrimary}
             title="Читать книгу"
           >
             <i className="fas fa-book-open"></i> Читать
           </Link>
-          
-          <button 
-            className={styles.btnOutline} 
-            onClick={handleInfoClick}
-            title="Подробная информация"
-          >
+
+          <button className={styles.btnOutline} onClick={handleInfoClick} title="Подробная информация">
             <i className="fas fa-info-circle"></i>
           </button>
-          
+
           {canAddToFavorites ? (
-            <button 
-              className={`${styles.btnOutline} ${isFavorite ? styles.favoriteActive : ''}`} 
+            <button
+              className={`${styles.btnOutline} ${isFavorite ? styles.favoriteActive : ''}`}
               onClick={handleFavoriteClick}
               disabled={isLoading}
               title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
@@ -186,7 +182,7 @@ export default function BookCard({ book }: BookCardProps) {
               )}
             </button>
           ) : (
-            <button 
+            <button
               className={styles.btnOutline}
               onClick={(e) => {
                 e.stopPropagation();
